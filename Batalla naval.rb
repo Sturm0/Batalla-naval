@@ -158,7 +158,12 @@ class Jugador
 			barco_atacado.vida -= 1
 			barco_atacado.coordenadas.delete las_coordenadas #porque sino el jugador podría ganar dandole siempre a la misma coordenada 
 			system("clear") || system("cls")
-			puts "LE DISTEEEEEEE!!!!!!!!!!!!!! MAQUINA"
+			if barco_atacado.vida == 0:
+				puts "¡¡¡¡¡¡¡LO HUNDISTE!!!!!!!!"
+			else
+				puts "LE DISTEEEEEEE!!!!!!!!!!!!!! MAQUINA"
+			end
+
 		else
 			system("clear") || system("cls")
 			puts "F, no le pegaste a nada"
