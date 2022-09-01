@@ -27,6 +27,8 @@ class Tablero
 					#bloque que se va a repetir
 					if elemento == 0
 						puts azulificar(elemento)
+					elsif elemento == "#"
+						puts "\033[90m#\033[0m"
 					else
 						puts elemento
 					end
@@ -42,6 +44,8 @@ class Tablero
 					#bloque casi repetido
 					if elemento == 0
 						print azulificar(elemento)," "
+					elsif elemento == "#"
+						print "\033[90m#\033[0m"," "
 					else
 						print elemento," "
 					end
@@ -53,29 +57,97 @@ class Tablero
 	puts
 	end
 
+
 	def poner_barco!(embarcacion,orientación,coordenadas)
 		#esta función también asigna las coordenadas correspondientes a la embarcación
 		#en orientación la H significa horizontal mientras que la V vertical
 
-		if orientación == "H" && coordenadas[0]+embarcacion.tamaño-1 < 10
+		if orientación == "H" && coordenadas[0]+embarcacion.tamaño-1 < 10 && !(@matriz[coordenadas[1]][coordenadas[0],embarcacion.tamaño].any? {|each| each == "B" or each == "#"})
 			#puts "ESTO TE INTERESA: ",coordenadas[0], embarcacion.tamaño
+			if embarcacion.tamaño == 1
+				puts "MONDONGO: ",embarcacion.tamaño, orientación
+			end
 			
 			for each in (coordenadas[0]..coordenadas[0]+embarcacion.tamaño-1)
-				@matriz[coordenadas[1]][each] = "B"
+				if embarcacion.tamaño != 1
+					@matriz[coordenadas[1]][each] = "B"
+				else
+					@matriz[coordenadas[1]][each] = "\033[32mB\033[0m"
+				end
 				embarcacion.coordenadas.push([each,coordenadas[1]])
+
 				
 			end
+
+			for extencion in (0..embarcacion.tamaño+1)	
+				#poner zona invalida: arriba
+				if (coordenadas[1]-1 >= 0 and (coordenadas[0]+extencion-1 >= 0 and coordenadas[0]+extencion-1 <= 9))
+					@matriz[coordenadas[1]-1][coordenadas[0]+extencion-1] = '#'
+				end
+
+				#poner zona invalida: abajo
+				if (coordenadas[1]+1 <= 9 and (coordenadas[0]+extencion-1 >= 0 and coordenadas[0]+extencion-1 <= 9))
+					@matriz[coordenadas[1]+1][coordenadas[0]+extencion-1] = '#'
+				end
+			end
+			#poner zona invalida a los costados
+			if coordenadas[0]-1 >= 0
+				#hay un tema con el barco de 1 casillero
+				@matriz[coordenadas[1]][coordenadas[0]-1] = '#'
+				
+			end 
+
+			if coordenadas[0]+embarcacion.tamaño <= 9
+				@matriz[coordenadas[1]][coordenadas[0]+embarcacion.tamaño] = '#'
+			end	
+			
+			
 			return true #significa que el barco se pudo colocar correctamente
-		elsif orientación == "V" && coordenadas[1]+embarcacion.tamaño-1 < 10
+		elsif orientación == "V" && coordenadas[1]+embarcacion.tamaño-1 < 10 && ((@matriz.find {|fila| fila[coordenadas[0]] == "B" or fila[coordenadas[0]] == "#"}) == nil)
+
+			for each in (coordenadas[1]..coordenadas[1]+embarcacion.tamaño-1)
+				if @matriz[each][coordenadas[0]] == "B"
+					puts "DEVOLVIO FALSO"
+					return false
+				end
+			end
+
 			for each in (coordenadas[1]..coordenadas[1]+embarcacion.tamaño-1)
 				@matriz[each][coordenadas[0]] = "B"
 				embarcacion.coordenadas.push([coordenadas[0],each])
 			end
+
+			
+			for extencion in (0..embarcacion.tamaño+1)
+				#poner zona invalida al costado derecho
+				if coordenadas[0]+1 <= 9 and coordenadas[1]+extencion-1 <= 9 and coordenadas[1]+extencion-1 >= 0
+					@matriz[coordenadas[1]+extencion-1][coordenadas[0]+1] = "#"
+				end
+
+				#poner zona invalida al costado izquierdo
+				for extencion in (0..embarcacion.tamaño+1)
+					if coordenadas[0]-1 >= 0 and coordenadas[1]+extencion-1 <= 9 and coordenadas[1]+extencion-1 >= 0
+						@matriz[coordenadas[1]+extencion-1][coordenadas[0]-1] = "#"
+					end
+				end
+			end
+
+			#poner arriba y abajo
+			if coordenadas[1]-1 >= 0
+				@matriz[coordenadas[1]-1][coordenadas[0]] = "#"
+			end
+			if coordenadas[1]+embarcacion.tamaño <= 9
+				@matriz[coordenadas[1]+embarcacion.tamaño][coordenadas[0]] = "#"
+			end
+
 			return true
 		else 
 			return false
 		end
 
+		
+
+		
 	end
 
 	def marcar_punto!(coordenadas,color)
@@ -83,7 +155,6 @@ class Tablero
 	end
 end
 
-#tipos_barcos = %w{lancha crucero submarino buque portaaviones}
 class Barco
 	def initialize(tamaño_barco)
 		@tamaño = tamaño_barco
@@ -158,11 +229,11 @@ class Jugador
 			barco_atacado.vida -= 1
 			barco_atacado.coordenadas.delete las_coordenadas #porque sino el jugador podría ganar dandole siempre a la misma coordenada 
 			system("clear") || system("cls")
-			if barco_atacado.vida == 0:
+			if barco_atacado.vida == 0
 				puts "¡¡¡¡¡¡¡LO HUNDISTE!!!!!!!!"
 			else
 				puts "LE DISTEEEEEEE!!!!!!!!!!!!!! MAQUINA"
-			end
+			end 
 
 		else
 			system("clear") || system("cls")
@@ -177,10 +248,23 @@ class Jugador
 end
 
 class Bot < Jugador
+	def initialize
+		super
+		@historial_ataques = []
+		@historial_ataques_exitosos = [] #va a ser usado en futuras actualizaciones para que el bot ataque a las áreas circundantes luego de un ataque exitoso
+	end
+
 	def pedir_coordenadas()
 		#le pide coordenadas al bot
 
-		return Random.rand(10),Random.rand(10)
+		x = Random.rand(10)
+		y = Random.rand(10)
+		while @historial_ataques.any? [x,y]
+			x = Random.rand(10)
+			y = Random.rand(10)
+		end 
+
+		return x,y
 	end
 
 	def pedir_datos()
@@ -195,10 +279,12 @@ class Bot < Jugador
 	def atacar(tabla,enemigo)
 		las_coordenadas = pedir_coordenadas()		
 		barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
+		@historial_ataques.push las_coordenadas
 		if barco_atacado != nil
 			color = "\033[31m" #esto es el color rojo
 			barco_atacado.vida -= 1
 			barco_atacado.coordenadas.delete las_coordenadas
+			@historial_ataques_exitosos.push las_coordenadas
 		else
 			color = ""
 		end
@@ -220,6 +306,7 @@ puts
 
 #esta sección es para que el jugador ponga los barcos en su tablero oceano
 puts "Empezemos colocando el portaaviones"
+
 
 x,y,orientación = el_jugador.pedir_datos()
 oceano.poner_barco!(el_jugador.barcos[4],orientación,[x,y])
@@ -244,6 +331,7 @@ for idx in (0..3).to_a.reverse!
 end
 #termina la sección del jugador para la colocación de barcos
 
+
 #esta sección es para que el bot ponga sus barcos
 for idx in (0..4).to_a.reverse!
 	x,y,orientación = el_bot.pedir_datos()
@@ -251,18 +339,23 @@ for idx in (0..4).to_a.reverse!
 		x,y,orientación = el_bot.pedir_datos()
 	end
 	
+	
 end
+#oceano_bot.mostrar
+#print el_bot.barcos[0].coordenadas
 
 #el_bot.barcos.each {|barcaza| print barcaza.coordenadas}
 #termina la sección del bot para la colocación de barcos
 
 puts "MUY BIEN!, ahora tenés que hundir a la flota enemiga"
 
+
 while true
 	el_jugador.atacar(tiro,el_bot)
 	tiro.mostrar
 	oceano.mostrar
 	el_bot.atacar(oceano,el_jugador)
+	
 	if !el_bot.vivo?
 		puts "¡GANASTE!"
 		break
