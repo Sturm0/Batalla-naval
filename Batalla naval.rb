@@ -61,12 +61,14 @@ class Tablero
 	def poner_barco!(embarcacion,orientación,coordenadas)
 		#esta función también asigna las coordenadas correspondientes a la embarcación
 		#en orientación la H significa horizontal mientras que la V vertical
+		#hay un problema en la colocación de barcos verticalmente en el borde izquierdo del tablero
 
 		if orientación == "H" && coordenadas[0]+embarcacion.tamaño-1 < 10 && !(@matriz[coordenadas[1]][coordenadas[0],embarcacion.tamaño].any? {|each| each == "B" or each == "#"})
 			#puts "ESTO TE INTERESA: ",coordenadas[0], embarcacion.tamaño
-			if embarcacion.tamaño == 1
-				puts "MONDONGO: ",embarcacion.tamaño, orientación
-			end
+			
+			#if embarcacion.tamaño == 1
+			#	puts "MONDONGO: ",embarcacion.tamaño, orientación
+			#end
 			
 			for each in (coordenadas[0]..coordenadas[0]+embarcacion.tamaño-1)
 				if embarcacion.tamaño != 1
@@ -107,7 +109,7 @@ class Tablero
 
 			for each in (coordenadas[1]..coordenadas[1]+embarcacion.tamaño-1)
 				if @matriz[each][coordenadas[0]] == "B"
-					puts "DEVOLVIO FALSO"
+					
 					return false
 				end
 			end
@@ -202,9 +204,9 @@ class Jugador
 
 	def pedir_coordenadas()
 		#le pide coordenadas al jugador
-		print "Ingresar coordenada x: "
+		print "Ingresar columna: "
 		x = (gets.to_i) -1
-		print "Ingresar coordenada y: "
+		print "Ingresar coordenada fila: "
 		y = (gets.to_i) -1
 		return x,y
 	end
@@ -251,11 +253,27 @@ class Bot < Jugador
 	def initialize
 		super
 		@historial_ataques = []
-		@historial_ataques_exitosos = [] #va a ser usado en futuras actualizaciones para que el bot ataque a las áreas circundantes luego de un ataque exitoso
+		@historial_ataques_exitosos = [] #contiene un historial con los barcos atacados de forma exitosa
+		@coordenadas_circundantes = [] #tiene las coordenadas circundantes a un ataque exitoso, tienen la forma x,y
+		@barco_atacado = nil
 	end
 
 	def pedir_coordenadas()
 		#le pide coordenadas al bot
+
+		if @barco_atacado.class == Barco and @barco_atacado.vida <= @barco_atacado.tamaño-2 and @barco_atacado.vida > 0
+			return @barco_atacado.coordenadas[0]
+
+		elsif @coordenadas_circundantes.length > 0 and @historial_ataques_exitosos.last.vida > 0
+			coordenadas_elegidas = @coordenadas_circundantes.sample
+			while @historial_ataques.any? coordenadas_elegidas
+				coordenadas_elegidas = @coordenadas_circundantes.sample
+			end
+
+			@coordenadas_circundantes.delete coordenadas_elegidas
+			return coordenadas_elegidas
+		end
+
 
 		x = Random.rand(10)
 		y = Random.rand(10)
@@ -269,22 +287,42 @@ class Bot < Jugador
 
 	def pedir_datos()
 		#le pide los datos necesarios al bot para poner un barco
-		
-		x,y = pedir_coordenadas()
-		orientación = %w{H V}[Random.rand(2)]
-		
-		return x, y,orientación
+		return Random.rand(10),Random.rand(10),%w{H V}[Random.rand(2)]
 	end
 
 	def atacar(tabla,enemigo)
-		las_coordenadas = pedir_coordenadas()		
-		barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
+		las_coordenadas = pedir_coordenadas()
+		#puts "ESTÁS SON LAS COORDENADAS DEL ATAQUE: \n","Fila: ",las_coordenadas[1]+1,"\n","Columna: ",las_coordenadas[0]+1 # por alguna razón no coincide con el tablero oceano
+		@barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
+
 		@historial_ataques.push las_coordenadas
-		if barco_atacado != nil
+		if @barco_atacado != nil
+
 			color = "\033[31m" #esto es el color rojo
-			barco_atacado.vida -= 1
-			barco_atacado.coordenadas.delete las_coordenadas
-			@historial_ataques_exitosos.push las_coordenadas
+			@barco_atacado.vida -= 1
+			@barco_atacado.coordenadas.delete las_coordenadas
+			@historial_ataques_exitosos.push @barco_atacado
+
+			#la sección siguiente es para determinar los casilleros circundantes al ataque exitoso
+			@coordenadas_circundantes = []
+			#poner zona circundante a los costados
+			if las_coordenadas[0]-1 >= 0 and !(@historial_ataques.any? [las_coordenadas[0]-1,las_coordenadas[1]])
+				@coordenadas_circundantes.push [las_coordenadas[0]-1,las_coordenadas[1]]
+			end 
+
+			if las_coordenadas[0]+1 <= 9 and !(@historial_ataques.any? [las_coordenadas[0]+1,las_coordenadas[1]])
+				@coordenadas_circundantes.push [las_coordenadas[0]+1,las_coordenadas[1]]
+			end	
+
+			#poner arriba y abajo
+			if las_coordenadas[1]-1 >= 0 and !(@historial_ataques.any? [las_coordenadas[0],las_coordenadas[1]-1])
+				@coordenadas_circundantes.push [las_coordenadas[0],las_coordenadas[1]-1]
+			end
+			if las_coordenadas[1]+1 <= 9 and !(@historial_ataques.any? [las_coordenadas[0],las_coordenadas[1]+1])
+				@coordenadas_circundantes.push [las_coordenadas[0],las_coordenadas[1]+1]
+			end
+
+			#fin de la sección para determinar los casilleros circundantes al ataque exitoso
 		else
 			color = ""
 		end
@@ -306,8 +344,6 @@ puts
 
 #esta sección es para que el jugador ponga los barcos en su tablero oceano
 puts "Empezemos colocando el portaaviones"
-
-
 x,y,orientación = el_jugador.pedir_datos()
 oceano.poner_barco!(el_jugador.barcos[4],orientación,[x,y])
 system("clear") || system("cls")
@@ -317,7 +353,9 @@ oceano.mostrar
 for idx in (0..3).to_a.reverse!
 	puts "Ahora el #{el_jugador.barcos[idx].tipo}"
 	x,y,orientación = el_jugador.pedir_datos() 
-	oceano.poner_barco!(el_jugador.barcos[idx],orientación,[x,y]) 
+	while !(oceano.poner_barco!(el_jugador.barcos[idx],orientación,[x,y])) 
+		x,y,orientación = el_jugador.pedir_datos() 
+	end
 	
 	#for each in (0..4)
 	#	x,y = each,each
@@ -331,6 +369,19 @@ for idx in (0..3).to_a.reverse!
 end
 #termina la sección del jugador para la colocación de barcos
 
+#esta sección es para hacer más simple la depuración
+=begin
+il_tamaño = 4
+for each in (0..9)
+	if each%2 == 0
+		x,y = each,each
+		oceano.poner_barco!(el_jugador.barcos[il_tamaño],'H',[x,y])
+		il_tamaño -= 1
+	end
+	
+end
+=end
+#termina la sección para hacer más simple la depuración
 
 #esta sección es para que el bot ponga sus barcos
 for idx in (0..4).to_a.reverse!
@@ -352,9 +403,9 @@ puts "MUY BIEN!, ahora tenés que hundir a la flota enemiga"
 
 while true
 	el_jugador.atacar(tiro,el_bot)
+	el_bot.atacar(oceano,el_jugador)
 	tiro.mostrar
 	oceano.mostrar
-	el_bot.atacar(oceano,el_jugador)
 	
 	if !el_bot.vivo?
 		puts "¡GANASTE!"
