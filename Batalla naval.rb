@@ -105,7 +105,8 @@ class Tablero
 			
 			
 			return true #significa que el barco se pudo colocar correctamente
-		elsif orientación == "V" && coordenadas[1]+embarcacion.tamaño-1 < 10 && ((@matriz.find {|fila| fila[coordenadas[0]] == "B" or fila[coordenadas[0]] == "#"}) == nil)
+			
+		elsif orientación == "V" && coordenadas[1]+embarcacion.tamaño-1 < 10 && (coordenadas[1]..coordenadas[1]+embarcacion.tamaño-1).all? { |numero| @matriz[numero][coordenadas[0]] == 0}
 
 			for each in (coordenadas[1]..coordenadas[1]+embarcacion.tamaño-1)
 				if @matriz[each][coordenadas[0]] == "B"
