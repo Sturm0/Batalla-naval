@@ -225,28 +225,40 @@ class Jugador
 	def atacar(tabla,enemigo)
 		puts "¿Cuales van a ser las coordenadas de tu ataque?"
 		las_coordenadas = pedir_coordenadas()		
-		barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
-		if barco_atacado != nil
-			
-			color = "\033[31m" #esto es el color rojo
-			barco_atacado.vida -= 1
-			barco_atacado.coordenadas.delete las_coordenadas #porque sino el jugador podría ganar dandole siempre a la misma coordenada 
-			system("clear") || system("cls")
-			if barco_atacado.vida == 0
-				puts "¡¡¡¡¡¡¡LO HUNDISTE!!!!!!!!"
-			else
-				puts "LE DISTEEEEEEE!!!!!!!!!!!!!! MAQUINA"
-			end 
 
+		#tabla.marcar_punto!(las_coordenadas,color)
+		ataque = enemigo.recibir_ataque(las_coordenadas)
+		system("clear") || system("cls")
+		color = "\033[31m" #esto es el color rojo
+		if ataque == "H"
+			puts "¡¡¡¡¡¡¡LO HUNDISTE!!!!!!!!"
+		elsif ataque == "D"
+			puts "LE DISTEEEEEEE!!!!!!!!!!!!!! MAQUINA"
 		else
-			system("clear") || system("cls")
-			puts "F, no le pegaste a nada"
 			color = ""
+			puts "F, no le pegaste a nada"
 		end
 		tabla.marcar_punto!(las_coordenadas,color)
+
 	end
 	def vivo?
 		@barcos.any? {|barquito| barquito.vida > 0}
+	end
+
+	def recibir_ataque(coordenadas_ataque)
+		atacado = @barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == coordenadas_ataque}}
+		if  atacado != nil
+			atacado.vida -= 1
+			atacado.coordenadas.delete coordenadas_ataque
+			if atacado.vida == 0
+				return "H" #Hundiste
+			else
+				return "D" #Diste
+			end
+		else
+			return "F" #Fallaste
+		end
+
 	end
 end
 
@@ -255,7 +267,8 @@ class Bot < Jugador
 		super
 		@historial_ataques = []
 		@historial_ataques_exitosos = [] #contiene un historial con los barcos atacados de forma exitosa
-		@coordenadas_circundantes = [] #tiene las coordenadas circundantes a un ataque exitoso, tienen la forma x,y
+		@historial_ataques_dados = [] #en principio reemplaza la de arriba, solo que para una implementación que evita leer las coordenadas directo del jugador
+		@coordenadas_posibles = [] #tiene las coordenadas donde es posible que este el barco enemigo
 		@barco_atacado = nil
 	end
 
@@ -265,13 +278,13 @@ class Bot < Jugador
 		if @barco_atacado.class == Barco and @barco_atacado.vida <= @barco_atacado.tamaño-2 and @barco_atacado.vida > 0
 			return @barco_atacado.coordenadas[0]
 
-		elsif @coordenadas_circundantes.length > 0 and @historial_ataques_exitosos.last.vida > 0
-			coordenadas_elegidas = @coordenadas_circundantes.sample
+		elsif @coordenadas_posibles.length > 0 and @historial_ataques_exitosos.last.vida > 0
+			coordenadas_elegidas = @coordenadas_posibles.sample
 			while @historial_ataques.any? coordenadas_elegidas
-				coordenadas_elegidas = @coordenadas_circundantes.sample
+				coordenadas_elegidas = @coordenadas_posibles.sample
 			end
 
-			@coordenadas_circundantes.delete coordenadas_elegidas
+			@coordenadas_posibles.delete coordenadas_elegidas
 			return coordenadas_elegidas
 		end
 
@@ -294,33 +307,36 @@ class Bot < Jugador
 	def atacar(tabla,enemigo)
 		las_coordenadas = pedir_coordenadas()
 		#puts "ESTÁS SON LAS COORDENADAS DEL ATAQUE: \n","Fila: ",las_coordenadas[1]+1,"\n","Columna: ",las_coordenadas[0]+1 # por alguna razón no coincide con el tablero oceano
+		#la idea es utilizar ataque y sacar el tema de @barco_atacado, ya que no es una buena práctica acceder a los atributos de otro objeto de forma directa
 		@barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
 
-		@historial_ataques.push las_coordenadas
-		if @barco_atacado != nil
+		ataque = enemigo.recibir_ataque(las_coordenadas)
 
-			color = "\033[31m" #esto es el color rojo
-			@barco_atacado.vida -= 1
-			@barco_atacado.coordenadas.delete las_coordenadas
+		@historial_ataques.push las_coordenadas
+
+
+		if ataque == "D"
 			@historial_ataques_exitosos.push @barco_atacado
+			color = "\033[31m" #esto es el color rojo
 
 			#la sección siguiente es para determinar los casilleros circundantes al ataque exitoso
-			@coordenadas_circundantes = []
+			@coordenadas_posibles = []
+
 			#poner zona circundante a los costados
 			if las_coordenadas[0]-1 >= 0 and !(@historial_ataques.any? [las_coordenadas[0]-1,las_coordenadas[1]])
-				@coordenadas_circundantes.push [las_coordenadas[0]-1,las_coordenadas[1]]
+				@coordenadas_posibles.push [las_coordenadas[0]-1,las_coordenadas[1]]
 			end 
 
 			if las_coordenadas[0]+1 <= 9 and !(@historial_ataques.any? [las_coordenadas[0]+1,las_coordenadas[1]])
-				@coordenadas_circundantes.push [las_coordenadas[0]+1,las_coordenadas[1]]
+				@coordenadas_posibles.push [las_coordenadas[0]+1,las_coordenadas[1]]
 			end	
 
 			#poner arriba y abajo
 			if las_coordenadas[1]-1 >= 0 and !(@historial_ataques.any? [las_coordenadas[0],las_coordenadas[1]-1])
-				@coordenadas_circundantes.push [las_coordenadas[0],las_coordenadas[1]-1]
+				@coordenadas_posibles.push [las_coordenadas[0],las_coordenadas[1]-1]
 			end
 			if las_coordenadas[1]+1 <= 9 and !(@historial_ataques.any? [las_coordenadas[0],las_coordenadas[1]+1])
-				@coordenadas_circundantes.push [las_coordenadas[0],las_coordenadas[1]+1]
+				@coordenadas_posibles.push [las_coordenadas[0],las_coordenadas[1]+1]
 			end
 
 			#fin de la sección para determinar los casilleros circundantes al ataque exitoso
