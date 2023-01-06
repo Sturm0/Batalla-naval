@@ -266,28 +266,46 @@ class Bot < Jugador
 	def initialize
 		super
 		@historial_ataques = []
-		@historial_ataques_exitosos = [] #contiene un historial con los barcos atacados de forma exitosa
-		@historial_ataques_dados = [] #en principio reemplaza la de arriba, solo que para una implementación que evita leer las coordenadas directo del jugador
+		@historial_ataques_dados = [] #contiene un historial con los barcos atacados de forma exitosa
 		@coordenadas_posibles = [] #tiene las coordenadas donde es posible que este el barco enemigo
-		@barco_atacado = nil
+		#@mondongo = 0
 	end
 
 	def pedir_coordenadas()
 		#le pide coordenadas al bot
+		#esto es para simplificar la depuración
+		#if @mondongo == 0
+		#	@mondongo += 1
+		#	return 3,2
+		#end
+		#termina sección para simplificar depuración
+		
+		#sección para determinar si es horizontal
+		if @historial_ataques_dados.length>=2 && @historial_ataques_dados.last[1] == @historial_ataques_dados[@historial_ataques_dados.length-2][1]
+			#puts "Según esto el barco es HORIZONTAL"
+			@coordenadas_posibles.delete_if {|posible| posible[1] != @historial_ataques_dados.last[1]}
 
-		if @barco_atacado.class == Barco and @barco_atacado.vida <= @barco_atacado.tamaño-2 and @barco_atacado.vida > 0
-			return @barco_atacado.coordenadas[0]
+		elsif @historial_ataques_dados.length>=2 && @historial_ataques_dados.last[0] == @historial_ataques_dados[@historial_ataques_dados.length-2][0]
+			#puts "Según esto el barco es VERTICAL"
+			@coordenadas_posibles.delete_if {|posible| posible[0] != @historial_ataques_dados.last[0]}
+		end
+		
+		#esta pequeña sección es para hacer más simple la depuración
+		#for each in @coordenadas_posibles
+		#	print each[0]+1," ",each[1]+1,"\n"
+		#end
 
-		elsif @coordenadas_posibles.length > 0 and @historial_ataques_exitosos.last.vida > 0
+		if @coordenadas_posibles.length > 0
 			coordenadas_elegidas = @coordenadas_posibles.sample
 			while @historial_ataques.any? coordenadas_elegidas
+				#acá no debería entrar nunca
+				puts "EXTRAÑAMENTE ENTRO"
 				coordenadas_elegidas = @coordenadas_posibles.sample
 			end
 
 			@coordenadas_posibles.delete coordenadas_elegidas
 			return coordenadas_elegidas
 		end
-
 
 		x = Random.rand(10)
 		y = Random.rand(10)
@@ -307,20 +325,17 @@ class Bot < Jugador
 	def atacar(tabla,enemigo)
 		las_coordenadas = pedir_coordenadas()
 		#puts "ESTÁS SON LAS COORDENADAS DEL ATAQUE: \n","Fila: ",las_coordenadas[1]+1,"\n","Columna: ",las_coordenadas[0]+1 # por alguna razón no coincide con el tablero oceano
-		#la idea es utilizar ataque y sacar el tema de @barco_atacado, ya que no es una buena práctica acceder a los atributos de otro objeto de forma directa
-		@barco_atacado = enemigo.barcos.find {|barquito| barquito.coordenadas.any? {|coordenada_barco| coordenada_barco == las_coordenadas}} #es el barco que esta bajo ataque
-
 		ataque = enemigo.recibir_ataque(las_coordenadas)
 
 		@historial_ataques.push las_coordenadas
 
 
 		if ataque == "D"
-			@historial_ataques_exitosos.push @barco_atacado
+			@historial_ataques_dados.push las_coordenadas
+
 			color = "\033[31m" #esto es el color rojo
 
 			#la sección siguiente es para determinar los casilleros circundantes al ataque exitoso
-			@coordenadas_posibles = []
 
 			#poner zona circundante a los costados
 			if las_coordenadas[0]-1 >= 0 and !(@historial_ataques.any? [las_coordenadas[0]-1,las_coordenadas[1]])
@@ -340,6 +355,10 @@ class Bot < Jugador
 			end
 
 			#fin de la sección para determinar los casilleros circundantes al ataque exitoso
+		elsif ataque == "H"
+			@coordenadas_posibles = []
+			@historial_ataques_dados = []
+			color = "\033[31m" #esto es el color rojo
 		else
 			color = ""
 		end
@@ -361,6 +380,7 @@ puts
 
 #esta sección es para que el jugador ponga los barcos en su tablero oceano
 puts "Empezemos colocando el portaaviones"
+
 x,y,orientación = el_jugador.pedir_datos()
 oceano.poner_barco!(el_jugador.barcos[4],orientación,[x,y])
 system("clear") || system("cls")
@@ -384,20 +404,21 @@ for idx in (0..3).to_a.reverse!
 	tiro.mostrar
 	oceano.mostrar
 end
+
 #termina la sección del jugador para la colocación de barcos
 
 #esta sección es para hacer más simple la depuración
-=begin
-il_tamaño = 4
-for each in (0..9)
-	if each%2 == 0
-		x,y = each,each
-		oceano.poner_barco!(el_jugador.barcos[il_tamaño],'H',[x,y])
-		il_tamaño -= 1
-	end
+
+#il_tamaño = 4
+#for each in (0..9)
+#	if each%2 == 0
+#		x,y = each,each
+#		oceano.poner_barco!(el_jugador.barcos[il_tamaño],'H',[x,y])
+#		il_tamaño -= 1
+#	end
 	
-end
-=end
+#end
+
 #termina la sección para hacer más simple la depuración
 
 #esta sección es para que el bot ponga sus barcos
@@ -406,8 +427,6 @@ for idx in (0..4).to_a.reverse!
 	while !(oceano_bot.poner_barco!(el_bot.barcos[idx],orientación,[x,y]))
 		x,y,orientación = el_bot.pedir_datos()
 	end
-	
-	
 end
 #oceano_bot.mostrar
 #print el_bot.barcos[0].coordenadas
